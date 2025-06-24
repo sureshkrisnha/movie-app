@@ -1,0 +1,98 @@
+import React, { useState, useEffect } from "react";
+import Search from "./components/Search";
+import Spinner from "./components/Spinner";
+import MovieCard from "./components/MovieCard";
+import { useDebounce } from "react-use";
+import { updateSearchCount } from "./appwrite";
+
+const API_BASE_URL = "https://api.themoviedb.org/3";
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY; // TMDB Read Access Token (v4)
+
+const App = () => {
+  const [searchTerm, setSearchTerm] = useState("sinners");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [movieList, setMovieList] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  useDebounce(() => {
+    setDebouncedSearchTerm(searchTerm)
+  },500,[searchTerm]);
+
+  const options = {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      Authorization: `Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NGMwMWI3MTA5ZGZlMDhiNzNmYjU0ZjVmMzI0MTMwZSIsIm5iZiI6MTc0MDExOTM4OC41MzYsInN1YiI6IjY3YjgxZDVjYTIyODQ2NjZmMWViMzg4YiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.mD0aPOFCvgHIKHZhWrORUigNfd1B0EbdaHDX7tXFXjI`, // Use TMDB Read Access Token
+    },
+  };
+
+  const fetchMovies = async (query = "") => {
+    try {
+      setIsLoading(true);
+      setErrorMsg("");
+
+      let url = "";
+      if (query) {
+        url = `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`;
+      } else {
+        url = `${API_BASE_URL}/discover/movie?include_adult=false&include_video=false&language=en-US&page=2&sort_by=popularity.desc`;
+      }
+
+      const res = await fetch(url, options);
+      const data = await res.json();
+
+      if (data.success === false || !data.results) {
+        setErrorMsg(data.status_message || "Failed to fetch movies.");
+        setMovieList([]);
+      } else {
+        setMovieList(data.results);
+      }
+      if(query && data.results.length > 0){
+        await updateSearchCount(query,data.results[0])
+      }
+      updateSearchCount();
+    } catch (error) {
+      console.error("Fetch error:", error);
+      setErrorMsg("Failed to fetch movies.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMovies(debouncedSearchTerm);
+  }, [debouncedSearchTerm]);
+
+  return (
+    <main>
+      <div className="pattern" />
+
+      <div className="wrapper">
+        <header>
+          <img src="./hero-img.png" alt="Hero" />
+          <h1>
+            Find <span className="text-gradient">Movies</span> You'll Enjoy
+            Without the Hassle
+          </h1>
+          <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </header>
+
+        <section className="all-movies">
+          <h2 className="mt-[20px]">All Movies</h2>
+          {isLoading && <Spinner />}
+          {errorMsg && <p className="text-red-500">{errorMsg}</p>}
+          {!isLoading && !errorMsg && (
+            <ul>
+              {movieList.map((movie) => (
+                <MovieCard key={movie.id} movie={movie} />
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </main>
+  );
+};
+
+export default App;
