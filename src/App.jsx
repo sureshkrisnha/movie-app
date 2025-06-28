@@ -1,9 +1,12 @@
+// src/App.jsx (Example modification for logout)
 import React, { useState, useEffect } from "react";
 import Search from "./components/Search";
 import Spinner from "./components/Spinner";
 import MovieCard from "./components/MovieCard";
 import { useDebounce } from "react-use";
-import { getTrendingMovies, updateSearchCount } from "./appwrite";
+import { getTrendingMovies, updateSearchCount } from "./appwrite"; // Assuming appwrite.js is still used for movie data
+import { useAuth } from "./context/AuthContext"; // New import
+import { useNavigate } from "react-router-dom"; // New import
 
 
 const API_BASE_URL = "https://api.themoviedb.org/3";
@@ -15,7 +18,9 @@ const App = () => {
   const [movieList, setMovieList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-    const [trendingMovies, setTrendingMovies] = useState([]);
+  const [trendingMovies, setTrendingMovies] = useState([]);
+  const { logout, user } = useAuth(); // Destructure logout and user from useAuth
+  const navigate = useNavigate(); // Initialize navigate
 
   useDebounce(
     () => {
@@ -29,7 +34,7 @@ const App = () => {
     method: "GET",
     headers: {
       accept: "application/json",
-      Authorization: `Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NGMwMWI3MTA5ZGZlMDhiNzNmYjU0ZjVmMzI0MTMwZSIsIm5iZiI6MTc0MDExOTM4OC41MzYsInN1YiI6IjY3YjgxZDVjYTIyODQ2NjZmMWViMzg4YiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.mD0aPOFCvgHIKHZhWrORUigNfd1B0EbdaHDX7tXFXjI`, // Use TMDB Read Access Token
+      Authorization: `Bearer ${API_KEY}`, // Use TMDB Read Access Token
     },
   };
 
@@ -77,6 +82,13 @@ const App = () => {
     }
   }
 
+  const handleLogout = async () => {
+    const success = await logout();
+    if (success) {
+      navigate('/login');
+    }
+  };
+
   useEffect(() => {
     fetchMovies(debouncedSearchTerm);
   }, [debouncedSearchTerm]);
@@ -84,6 +96,7 @@ const App = () => {
   useEffect( ()=>{
     loadTrendingMovies();
   },[] )
+
 
   return (
     <main>
@@ -96,6 +109,15 @@ const App = () => {
             Find <span className="text-gradient">Movies</span> You'll Enjoy
             Without the Hassle
           </h1>
+          {user && (
+            <p className="text-white text-right mb-2">Welcome, {user.email}!</p>
+          )}
+          <button
+            onClick={handleLogout}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mb-4 float-right"
+          >
+            Logout
+          </button>
           <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </header>
       {trendingMovies.length > 0 && (
